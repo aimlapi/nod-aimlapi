@@ -201,7 +201,12 @@ export const modelProviderInfo: Record<
     catalog: 'account',
   },
   azure: { keyUrl: 'ai.azure.com', env: 'AZURE_OPENAI_API_KEY', catalog: 'account' },
-  aimlapi: { keyUrl: 'aimlapi.com/app/keys', env: 'AIMLAPI_API_KEY', catalog: 'account' },
+  aimlapi: {
+    keyUrl: 'aimlapi.com/app/keys',
+    env: 'AIMLAPI_API_KEY',
+    catalog: 'account',
+    common: true,
+  },
   'ant-ling': { keyUrl: 'chat.ant-ling.com/open', env: 'ANT_LING_API_KEY', catalog: 'bundled' },
   baseten: {
     keyUrl: 'app.baseten.co/settings/api_keys',

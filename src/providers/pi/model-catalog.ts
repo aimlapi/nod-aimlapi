@@ -71,6 +71,20 @@ export const antLingModel: Model<'openai-completions'> = {
   },
 };
 
+export const aimlapiModel: Model<'openai-completions'> = {
+  id: 'openai/gpt-6.1-sol',
+  name: 'GPT-6.1 Sol',
+  provider: 'aimlapi',
+  api: 'openai-completions',
+  baseUrl: 'https://api.aimlapi.com/v1',
+  reasoning: true,
+  input: ['text', 'image'],
+  contextWindow: 1050000,
+  maxTokens: 128000,
+  cost: { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 },
+  compat: { supportsDeveloperRole: false },
+};
+
 export function assistantModelId(id: string) {
   return !specialist.test(id);
 }
@@ -285,7 +299,7 @@ export async function nativeCatalog(
   }
 
   if (provider === 'aimlapi') {
-    const base = 'https://api.aimlapi.com/v1';
+    const base = aimlapiModel.baseUrl;
     const account = parse(
       z.object({ data: z.object({ disabled: z.boolean() }) }),
       await read(`${base}/key`, headers),
@@ -351,7 +365,7 @@ export async function nativeCatalog(
             cacheRead: price('cached'),
             cacheWrite: price('cache_write'),
           },
-          compat: { supportsDeveloperRole: false },
+          compat: aimlapiModel.compat,
         };
       });
     return assistantModels([...new Map(models.map((model) => [model.id, model])).values()]);

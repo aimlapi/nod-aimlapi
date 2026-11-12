@@ -37,6 +37,7 @@ import { piUsageMetrics } from './usage.ts';
 import { audioUsage, nativeAudioRequest, readsNativeAudio } from './audio.ts';
 import { completeAssistantMessage } from './checkpoint.ts';
 import {
+  aimlapiModel,
   antLingModel,
   nativeAudioModel,
   assistantModelId,
@@ -757,7 +758,11 @@ export function createPiModelBackend(options: { fetch?: typeof fetch } = {}): Mo
         throw new Error('This model provider is unavailable.');
       if (provider === 'compatible') return endpointCatalog(credential);
       let local = assistantModels(
-        provider === 'ant-ling' ? [antLingModel] : (await runtime()).getModels(provider),
+        provider === 'ant-ling'
+          ? [antLingModel]
+          : provider === 'aimlapi'
+            ? [aimlapiModel]
+            : (await runtime()).getModels(provider),
       );
       if (provider === 'openai' && method === 'api_key') {
         const baseUrl = openAIBaseUrl(

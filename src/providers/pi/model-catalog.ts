@@ -284,6 +284,79 @@ export async function nativeCatalog(
     return assistantModels([...new Map(models.map((model) => [model.id, model])).values()]);
   }
 
+  if (provider === 'aimlapi') {
+    const base = 'https://api.aimlapi.com/v1';
+    const account = parse(
+      z.object({ data: z.object({ disabled: z.boolean() }) }),
+      await read(`${base}/key`, headers),
+    );
+    if (account.data.disabled) throw denied();
+    const data = parse(
+      z.object({ data: z.array(z.unknown()).max(10000) }),
+      await read(`${base}/models?include=capabilities,modalities,pricing`, headers),
+    );
+    const size = z.number().int().positive().max(100000000);
+    const models = list(
+      data.data,
+      z.object({
+        id: modelId,
+        type: z.literal('openai/chat-completions'),
+        info: z.object({
+          name: z.string().min(1).max(200),
+          contextLength: size,
+          outputMax: size.nullish(),
+        }),
+        modalities: z.object({
+          input: z.array(z.string()).max(20),
+          output: z.array(z.string()).max(20),
+        }),
+        capabilities: z.array(z.string()).max(100),
+        pricing: z.object({ units: z.array(z.unknown()).max(100) }).optional(),
+      }),
+    )
+      .filter(
+        (model) =>
+          model.capabilities.includes('tools') &&
+          model.modalities.input.includes('text') &&
+          model.modalities.output.length > 0 &&
+          model.modalities.output.every((modality) => modality === 'text'),
+      )
+      .map((model): Model<'openai-completions'> => {
+        const units = list(
+          model.pricing?.units ?? [],
+          z.object({
+            name: z.literal('token'),
+            content: z.literal('text'),
+            phase: z.literal('inference'),
+            origin: z.string(),
+            price: z.number().nonnegative().finite(),
+            per: z.literal(1000000),
+          }),
+        );
+        const price = (origin: string) => units.find((unit) => unit.origin === origin)?.price ?? 0;
+        return {
+          id: model.id,
+          name: model.info.name,
+          provider,
+          api: 'openai-completions',
+          baseUrl: base,
+          reasoning: model.capabilities.includes('reasoning'),
+          input: model.modalities.input.includes('image') ? ['text', 'image'] : ['text'],
+          contextWindow: model.info.contextLength,
+          maxTokens:
+            model.info.outputMax ?? Math.min(32_768, Math.floor(model.info.contextLength / 2)),
+          cost: {
+            input: price('provided'),
+            output: price('generated'),
+            cacheRead: price('cached'),
+            cacheWrite: price('cache_write'),
+          },
+          compat: { supportsDeveloperRole: false },
+        };
+      });
+    return assistantModels([...new Map(models.map((model) => [model.id, model])).values()]);
+  }
+
   if (Object.hasOwn(catalogEndpoints, provider)) {
     const data = await read(catalogEndpoints[provider as keyof typeof catalogEndpoints], headers);
     const models =

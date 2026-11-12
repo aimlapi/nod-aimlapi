@@ -1,6 +1,7 @@
 import type { ModelChoice, ModelEffort, ModelMethod, ModelProvider } from './models.ts';
 
 export const agentModels: Partial<Record<ModelProvider, string>> = {
+  aimlapi: 'openai/gpt-6.1-sol',
   'ant-ling': 'Ling-3.1-flash',
   anthropic: 'claude-opus-5-5',
   azure: 'gpt-6.1-sol',
@@ -45,6 +46,7 @@ export const memoryModels: Partial<Record<ModelProvider, string>> = {
   openai: 'gpt-6-luna',
   anthropic: 'claude-haiku-5-5',
   openrouter: 'openai/gpt-6-luna',
+  aimlapi: 'openai/gpt-6-luna',
   google: 'gemini-3.8-flash',
   'google-vertex': 'gemini-3.8-flash',
   mistral: 'mistral-small-latest',

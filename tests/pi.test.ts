@@ -5033,6 +5033,180 @@ test('Radius uses its account catalog, rejects moved gateways and streams tool c
   assert.equal(calls, 2);
 });
 
+test('AI/ML API lists tool-capable chat models from its account catalog and streams tool calls with system instructions', async () => {
+  const { createPiModelBackend, createPiModelRuntime } =
+    await import('../src/providers/pi/models.ts');
+  const { ModelAuthError } = await import('../src/ports/models.ts');
+  const key = 'fixture-aimlapi-key';
+  let disabled = false;
+  let status = 200;
+  const visited: string[] = [];
+  const row = (id: string, overrides: Record<string, unknown> = {}) => ({
+    id,
+    type: 'openai/chat-completions',
+    info: { name: `Fixture ${id}`, contextLength: 200000, outputMax: 16000 },
+    modalities: { input: ['text', 'image'], output: ['text'] },
+    capabilities: ['streaming', 'tools', 'vision', 'reasoning'],
+    pricing: {
+      units: [
+        {
+          name: 'token',
+          content: 'text',
+          phase: 'inference',
+          origin: 'provided',
+          price: 2,
+          per: 1000000,
+        },
+        {
+          name: 'token',
+          content: 'text',
+          phase: 'inference',
+          origin: 'generated',
+          price: 8,
+          per: 1000000,
+        },
+        {
+          name: 'token',
+          content: 'text',
+          phase: 'inference',
+          origin: 'cached',
+          price: 0.5,
+          per: 1000000,
+        },
+      ],
+    },
+    ...overrides,
+  });
+  const backend = createPiModelBackend({
+    fetch: async (input, init) => {
+      visited.push(String(input));
+      assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${key}`);
+      assert.equal(init?.redirect, 'error');
+      if (status !== 200) return Response.json({ message: `Synthetic ${key}` }, { status });
+      if (String(input) === 'https://api.aimlapi.com/v1/key')
+        return Response.json({ data: { disabled } });
+      assert.equal(
+        String(input),
+        'https://api.aimlapi.com/v1/models?include=capabilities,modalities,pricing',
+      );
+      return Response.json({
+        data: [
+          row('fixture/agent'),
+          row('fixture/agent', { type: 'openai/responses/submit' }),
+          row('fixture/text-only', {
+            modalities: { input: ['text'], output: ['text'] },
+            capabilities: ['streaming', 'tools'],
+            info: { name: 'Fixture text', contextLength: 64000 },
+            pricing: undefined,
+          }),
+          row('fixture/no-tools', { capabilities: ['streaming', 'vision'] }),
+          row('fixture/speaker', { modalities: { input: ['text'], output: ['text', 'audio'] } }),
+          row('fixture/painter', { type: 'openai/image-generations' }),
+          row('fixture/../../private'),
+        ],
+      });
+    },
+  });
+  const definitions = await backend.catalog('aimlapi', 'api_key', { type: 'api_key', key });
+  assert.deepEqual(visited, [
+    'https://api.aimlapi.com/v1/key',
+    'https://api.aimlapi.com/v1/models?include=capabilities,modalities,pricing',
+  ]);
+  assert.deepEqual(
+    definitions.map(({ choice }) => [choice.id, choice.images, choice.contextWindow]),
+    [
+      ['fixture/agent', true, 200000],
+      ['fixture/text-only', false, 64000],
+    ],
+  );
+  const agent = definitions[0].spec;
+  assert.equal(agent.baseUrl, 'https://api.aimlapi.com/v1');
+  assert.equal(agent.maxTokens, 16000);
+  assert.deepEqual(agent.cost, { input: 2, output: 8, cacheRead: 0.5, cacheWrite: 0 });
+  assert.equal(definitions[1].spec.maxTokens, 32000);
+  disabled = true;
+  await assert.rejects(
+    backend.catalog('aimlapi', 'api_key', { type: 'api_key', key }),
+    (error: Error) => error instanceof ModelAuthError,
+  );
+  disabled = false;
+  for (status of [401, 403, 503]) {
+    await assert.rejects(
+      backend.catalog('aimlapi', 'api_key', { type: 'api_key', key }),
+      (error: Error) => !error.message.includes(key),
+    );
+  }
+
+  const { runtime, model } = await createPiModelRuntime({
+    provider: 'aimlapi',
+    method: 'api_key',
+    definition: definitions[0],
+    effort: 'high',
+    read: async () => ({ type: 'api_key', key }),
+  });
+  const answer = await runtime.completeSimple(
+    model,
+    {
+      systemPrompt: 'Use the fixture tool.',
+      messages: [{ role: 'user', content: 'Inspect the fixture.', timestamp: 1 }],
+      tools: [
+        {
+          name: 'inspect_fixture',
+          description: 'Inspect a fixture.',
+          parameters: Type.Object({ path: Type.String() }),
+        },
+      ],
+    },
+    {
+      reasoning: 'high',
+      fetch: async (input, init) => {
+        assert.equal(String(input), 'https://api.aimlapi.com/v1/chat/completions');
+        assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${key}`);
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.model, 'fixture/agent');
+        assert.deepEqual(
+          body.messages.map((message: { role: string }) => message.role),
+          ['system', 'user'],
+        );
+        assert.equal(body.reasoning_effort, 'high');
+        assert.equal(body.tools[0].function.name, 'inspect_fixture');
+        const chunks = [
+          {
+            choices: [
+              {
+                index: 0,
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: 'fixture-call',
+                      type: 'function',
+                      function: { name: 'inspect_fixture', arguments: '{"path":"fixture.txt"}' },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          { choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }] },
+          { choices: [], usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 } },
+        ];
+        return new Response(
+          `${chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join('')}data: [DONE]\n\n`,
+          { headers: { 'content-type': 'text/event-stream' } },
+        );
+      },
+    },
+  );
+  assert.equal(answer.stopReason, 'toolUse', answer.errorMessage);
+  assert.deepEqual(answer.content.at(-1), {
+    type: 'toolCall',
+    id: 'fixture-call',
+    name: 'inspect_fixture',
+    arguments: { path: 'fixture.txt' },
+  });
+});
+
 test('Cloudflare catalogs and streams use only the owned account and gateway with no ambient fallback', async () => {
   const { createPiModelBackend, createPiModelRuntime } =
     await import('../src/providers/pi/models.ts');

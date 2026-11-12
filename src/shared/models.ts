@@ -6,6 +6,7 @@ export const apiKeyModelProviders = [
   'amazon-bedrock',
   'google-vertex',
   'azure',
+  'aimlapi',
   'ant-ling',
   'baseten',
   'cerebras',
@@ -113,6 +114,7 @@ export const modelProviderNames = {
   'amazon-bedrock': 'Amazon Bedrock',
   'google-vertex': 'Google Vertex AI',
   azure: 'Azure OpenAI',
+  aimlapi: 'AI/ML API',
   'ant-ling': 'Ant Ling',
   baseten: 'Baseten',
   cerebras: 'Cerebras',
@@ -199,6 +201,7 @@ export const modelProviderInfo: Record<
     catalog: 'account',
   },
   azure: { keyUrl: 'ai.azure.com', env: 'AZURE_OPENAI_API_KEY', catalog: 'account' },
+  aimlapi: { keyUrl: 'aimlapi.com/app/keys', env: 'AIMLAPI_API_KEY', catalog: 'account' },
   'ant-ling': { keyUrl: 'chat.ant-ling.com/open', env: 'ANT_LING_API_KEY', catalog: 'bundled' },
   baseten: {
     keyUrl: 'app.baseten.co/settings/api_keys',

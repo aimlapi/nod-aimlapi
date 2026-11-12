@@ -28,7 +28,7 @@ Select **Add connection** (or **Add** when you already have a connection), then 
 | Other named providers              | Service-specific API key                                  | A capable model from that connection     |
 | OpenAI-compatible                  | Server address and optional key                           | A model offered by the server            |
 
-Other providers include Ant Ling, Baseten, Cerebras, DeepSeek, Fireworks AI, Groq, Hugging Face, Kimi Coding China, Meta, MiniMax, Mistral, Moonshot AI, NVIDIA, OpenCode Zen and Go, Qwen Token Plan, Radius, Together AI, Vercel AI Gateway, xAI, Xiaomi MiMo and token plans, and Z.AI. The picker includes their supported regional variants.
+Other providers include AI/ML API, Ant Ling, Baseten, Cerebras, DeepSeek, Fireworks AI, Groq, Hugging Face, Kimi Coding China, Meta, MiniMax, Mistral, Moonshot AI, NVIDIA, OpenCode Zen and Go, Qwen Token Plan, Radius, Together AI, Vercel AI Gateway, xAI, Xiaomi MiMo and token plans, and Z.AI. The picker includes their supported regional variants.
 
 When an account model list is available, Nod loads it. For services with only a bundled catalog, Nod saves the key and checks access on first use. Neither a catalog nor a saved key proves that your account has credit or permission to run every listed model.
 
@@ -331,6 +331,7 @@ Every service below supports environment setup. You can add several provider key
 | `amazon-bedrock`             | Amazon Bedrock              | `AWS_BEARER_TOKEN_BEDROCK`           |
 | `google-vertex`              | Google Vertex AI            | `GOOGLE_CLOUD_API_KEY`               |
 | `azure`                      | Azure OpenAI                | `AZURE_OPENAI_API_KEY`               |
+| `aimlapi`                    | AI/ML API                   | `AIMLAPI_API_KEY`                    |
 | `ant-ling`                   | Ant Ling                    | `ANT_LING_API_KEY`                   |
 | `baseten`                    | Baseten                     | `BASETEN_API_KEY`                    |
 | `cerebras`                   | Cerebras                    | `CEREBRAS_API_KEY`                   |

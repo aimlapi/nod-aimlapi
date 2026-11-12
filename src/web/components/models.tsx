@@ -182,6 +182,7 @@ function providerDescription(provider: ModelProvider) {
     case 'google':
       return 'Gemini with an AI Studio key · Free tier available';
     case 'openrouter':
+    case 'aimlapi':
       return 'Many models with one API key';
     case 'amazon-bedrock':
       return 'Models in your AWS account';
